@@ -235,16 +235,3 @@
         }
     ]
 }
-
-
-
-
-
-
-
-"adNicIPAddress": { 
-74 			"type": "string", 
-75 			"metadata": { 
-76 				"description": "The IP address of the new AD VM" 
-77 			}, 
-78 			"defaultValue": "10.0.0.4" 
