@@ -1,4 +1,4 @@
-﻿{
+{
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
@@ -8,6 +8,13 @@
         "description": "This is the name of the Virtual Network"
       }
 
+    },
+    "adNicIPAddress": {
+      "type": "string",
+      "metadata": {
+        "description": "The IP address of the new AD VM"
+      },
+      "defaultValue": "10.0.0.4"
     },
     "adminUsername": {
       "type": "string",
@@ -160,7 +167,8 @@
                     {
                         "name": "ipconfig1",
                         "properties": {
-                            "privateIPAllocationMethod": "Dynamic",
+                          "privateIPAllocationMethod": "Static",
+                          "privateIPAddress": "[parameters('adNicIPAddress')]",
                             "subnet": {
                                 "id": "[variables('subnetRef')]"
                             }
@@ -227,3 +235,16 @@
         }
     ]
 }
+
+
+
+
+
+
+
+"adNicIPAddress": { 
+74 			"type": "string", 
+75 			"metadata": { 
+76 				"description": "The IP address of the new AD VM" 
+77 			}, 
+78 			"defaultValue": "10.0.0.4" 
