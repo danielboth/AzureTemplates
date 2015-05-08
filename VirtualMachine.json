@@ -10,11 +10,14 @@
 
     },
     "adNicIPAddress": {
-      "type": "string",
+      "type": "array",
+      "defaultValue": [
+        "10.0.2.4",
+        "10.0.2.5"
+      ],
       "metadata": {
-        "description": "The IP address of the new AD VM"
-      },
-      "defaultValue": "10.0.0.4"
+        "description": "The IP address of the new VM's"
+      }
     },
     "adminUsername": {
       "type": "string",
@@ -58,7 +61,7 @@
     },
     "vmStorageAccountContainerName": {
       "type": "string",
-      "defaultValue": "vhds",
+      "defaultValue": "dns",
       "metadata": {
         "description": "This is the storage account container name"
       }
@@ -71,167 +74,213 @@
       }
 
     },
-    "newStorageAccountName": {
+    "StorageAccountName": {
       "type": "string"
     },
     "vmSize": {
       "type": "string",
-      "defaultValue": "Standard_A0",
-      "allowedValues": [
-        "Standard_A0",
-        "Standard_A1",
-        "Standard_A2",
-        "Standard_A3",
-        "Standard_A4"
-      ],
+      "defaultValue": "Basic_A2",
       "metadata": {
-        "description": "This is the allowed list of VM sizes"
+        "description": "This is the size of the VM"
       }
 
+    },
+    "vmExtensionName": {
+      "type": "string",
+      "defaultValue": "IaaSAntimalware",
+      "metadata": {
+        "description": "Extension name"
+      }
     }
+
   },
   "variables": {
     "availabilitySetName": "AvSet",
+    "adDataDisk": "ADDataDisk",
+    "adDataDiskSize": 50,
     "storageAccountType": "Standard_LRS",
     "subnetName": "backendSubnet",
     "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',parameters('virtualNetworkName'))]",
     "subnetRef": "[concat(variables('vnetID'),'/subnets/',variables ('subnetName'))]",
     "networkInterfaceNamePrefix": "[parameters('vmNamePrefix')]",
     "networkInterfaceNameSuffix": "-Nic",
-    "numberOfInstances": 4
+    "numberOfInstances": 2
   },
-    "resources": [
-        {
-            "apiVersion": "2015-05-01-preview",
-            "type": "Microsoft.Storage/storageAccounts",
-            "name": "[parameters('newStorageAccountName')]",
-            "location": "[resourceGroup().location]",
-            "tags": {
-                "displayName": "StorageAccount"
-            },
+  "resources": [
+    {
+      "apiVersion": "2015-05-01-preview",
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[parameters('StorageAccountName')]",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "displayName": "StorageAccount"
+      },
+      "properties": {
+        "accountType": "[variables('storageAccountType')]"
+      }
+    },
+    {
+      "apiVersion": "2015-01-01-preview",
+      "type": "Microsoft.Compute/availabilitySets",
+      "name": "[variables('availabilitySetName')]",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "displayName": "AvailabilitySet"
+      }
+    },
+    {
+      "apiVersion": "2015-05-01-preview",
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[parameters('virtualNetworkName')]",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "displayName": "VirtualNetwork"
+      },
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.0.0/16"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('subnetName')]",
             "properties": {
-                "accountType": "[variables('storageAccountType')]"
+              "addressPrefix": "10.0.2.0/24"
             }
-        },
-        {
-            "apiVersion": "2015-05-01-preview",
-            "type": "Microsoft.Compute/availabilitySets",
-            "name": "[variables('availabilitySetName')]",
-            "location": "[resourceGroup().location]",
-            "tags": {
-                "displayName": "AvailabilitySet"
-            }
-        },
-        {
-            "apiVersion": "2015-05-01-preview",
-            "type": "Microsoft.Network/virtualNetworks",
-            "name": "[parameters('virtualNetworkName')]",
-            "location": "[resourceGroup().location]",
-            "tags": {
-                "displayName": "VirtualNetwork"
-            },
-            "properties": {
-                "addressSpace": {
-                    "addressPrefixes": [
-                        "10.0.0.0/16"
-                    ]
-                },
-                "subnets": [
-                    {
-                        "name": "[variables('subnetName')]",
-                        "properties": {
-                            "addressPrefix": "10.0.2.0/24"
-                        }
-                    }
-                ]
-            }
-        },
+          }
+        ]
+      }
+    },
 
-        {
-            "apiVersion": "2015-05-01-preview",
-            "type": "Microsoft.Network/networkInterfaces",
-            "name": "[concat(variables('networkInterfaceNamePrefix'), copyindex(), variables('networkInterfaceNameSuffix'), copyindex())]",
-            "location": "[resourceGroup().location]",
-            "tags": {
-                "displayName": "NetworkInterface"
-            },
-            "copy": {
-                "name": "nicLoop",
-                "count": "[variables('numberOfInstances')]"
-            },
-            "dependsOn": [
-                "[concat('Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'))]"
-            ],
+    {
+      "apiVersion": "2015-05-01-preview",
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[concat(variables('networkInterfaceNamePrefix'), copyindex(), variables('networkInterfaceNameSuffix'))]",
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "displayName": "NetworkInterface"
+      },
+      "copy": {
+        "name": "nicLoop",
+        "count": "[variables('numberOfInstances')]"
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Network/virtualNetworks/', parameters('virtualNetworkName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
             "properties": {
-                "ipConfigurations": [
-                    {
-                        "name": "ipconfig1",
-                        "properties": {
-                          "privateIPAllocationMethod": "Static",
-                          "privateIPAddress": "[parameters('adNicIPAddress')]",
-                            "subnet": {
-                                "id": "[variables('subnetRef')]"
-                            }
-                        }
-                    }
-                ]
-
+              "privateIPAllocationMethod": "Static",
+              "privateIPAddress": "[parameters('adNicIPAddress')]",
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              }
             }
+          }
+        ]
+
+      }
+    },
+
+    {
+      "apiVersion": "2015-05-01-preview",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[concat(parameters('vmNamePrefix'), copyindex())]",
+      "copy": {
+        "name": "virtualMachineLoop",
+        "count": "[variables('numberOfInstances')]"
+      },
+      "location": "[resourceGroup().location]",
+      "tags": {
+        "displayName": "VirtualMachines"
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Storage/storageAccounts/', parameters('StorageAccountName'))]",
+        "[concat('Microsoft.Network/networkInterfaces/', concat(variables('networkInterfaceNamePrefix'), copyindex(), variables('networkInterfaceNameSuffix'), copyindex()))]",
+        "[concat('Microsoft.Compute/availabilitySets/', variables('availabilitySetName'))]"
+      ],
+      "properties": {
+        "availabilitySet": {
+          "id": "[resourceId('Microsoft.Compute/availabilitySets',variables('availabilitySetName'))]"
         },
-
-        {
-            "apiVersion": "2015-05-01-preview",
-            "type": "Microsoft.Compute/virtualMachines",
-            "name": "[concat(parameters('vmNamePrefix'), copyindex())]",
-            "copy": {
-                "name": "virtualMachineLoop",
-                "count": "[variables('numberOfInstances')]"
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "osProfile": {
+          "computername": "[concat(parameters('vmNamePrefix'), copyIndex())]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[parameters('imagePublisher')]",
+            "offer": "[parameters('imageOffer')]",
+            "sku": "[parameters('imageSKU')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "[concat(parameters('vmNamePrefix'), copyindex(), '-OSdisk')]",
+            "vhd": {
+              "uri": "[concat('http://',parameters('StorageAccountName'),'.blob.core.windows.net/dns/vhds/',concat(parameters('vmNamePrefix'),copyindex(), '.vhd'))]"
             },
-            "location": "[resourceGroup().location]",
-            "tags": {
-                "displayName": "VirtualMachines"
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          },
+          "dataDisks": {
+            "vhd": {
+              "uri": "[concat('http://',parameters('StorageAccountName'),'.blob.core.windows.net/dns/vhds/', variables('adDataDisk'),'-1.vhd')]"
             },
-            "dependsOn": [
-                "[concat('Microsoft.Storage/storageAccounts/', parameters('newStorageAccountName'))]",
-                "[concat('Microsoft.Network/networkInterfaces/', concat(variables('networkInterfaceNamePrefix'), copyindex(), variables('networkInterfaceNameSuffix'), copyindex()))]",
-                "[concat('Microsoft.Compute/availabilitySets/', variables('availabilitySetName'))]"
-            ],
-            "properties": {
-                "availabilitySet": {
-                    "id": "[resourceId('Microsoft.Compute/availabilitySets',variables('availabilitySetName'))]"
-                },
-                "hardwareProfile": {
-                    "vmSize": "[parameters('vmSize')]"
-                },
-                "osProfile": {
-                    "computername": "[concat(parameters('vmNamePrefix'), copyIndex())]",
-                    "adminUsername": "[parameters('adminUsername')]",
-                    "adminPassword": "[parameters('adminPassword')]"
-                },
-                "storageProfile": {
-                    "imageReference": {
-                        "publisher": "[parameters('imagePublisher')]",
-                        "offer": "[parameters('imageOffer')]",
-                        "sku": "[parameters('imageSKU')]",
-                        "version": "latest"
-                    },
-                    "osDisk": {
-                        "name": "osdisk",
-                        "vhd": {
-                            "uri": "[concat('http://',parameters('newStorageAccountName'),'.blob.core.windows.net/vhds/','osdisk', copyindex(), '.vhd')]"
-                        },
-                        "caching": "ReadWrite",
-                        "createOption": "FromImage"
-                    }
-                },
-                "networkProfile": {
-                    "networkInterfaces": [
-                        {
-                            "id": "[resourceId('Microsoft.Network/networkInterfaces',concat(variables('networkInterfaceNamePrefix'), copyindex(), variables('networkInterfaceNameSuffix'), copyindex()))]"
-                        }
-                    ]
-                }
+            "name": "[concat(parameters('vmNamePrefix'), copyindex(), '-data-disk1')]",
+            "caching": "None",
+            "createOption": "empty",
+            "diskSizeGB": "[variables('adDataDiskSize')]",
+            "lun": 0
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',concat(variables('networkInterfaceNamePrefix'), copyindex(), variables('networkInterfaceNameSuffix'), copyindex()))]"
             }
+          ]
         }
-    ]
+      }
+    },
+    {
+      "apiVersion": "2015-05-01-preview",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(parameters('vmNamePrefix'), copyindex(),'/', parameters('vmExtensionName'))]",
+       "tags": {
+        "displayName": "VM-Extenstions"
+      },
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', concat(parameters('vmNamePrefix'), copyindex()))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Azure.Security",
+        "type": "IaaSAntimalware",
+        "typeHandlerVersion": "1.1",
+        "settings": {
+          "AntimalwareEnabled": "true",
+          "Exclusions": {
+            "Paths": "C:\\Users",
+            "Extensions": ".txt",
+            "Processes": "taskmgr.exe"
+          },
+          "RealtimeProtectionEnabled": "true",
+          "ScheduledScanSettings": {
+            "isEnabled": "true",
+            "scanType": "Quick",
+            "day": "7",
+            "time": "120"
+          }
+        },
+        "protectedSettings": null
+      }
+    }
+  ]
 }
